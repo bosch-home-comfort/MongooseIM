@@ -71,7 +71,8 @@ user_send_message(Acc, _, _) ->
       Args :: #{jid := jid:jid()},
       Extra :: gen_hook:extra().
 user_present(Acc, #{jid := UserJID = #jid{}}, _) ->
-    Event = #user_status_event{jid = UserJID, status = online},
+    SessionCount = count_user_sessions(UserJID),
+    Event = #user_status_event{jid = UserJID, status = online, time = erlang:system_time(millisecond), session_count = SessionCount},
     NewAcc = mod_event_pusher:push_event(Acc, Event),
     {ok, merge_acc(Acc, NewAcc)}.
 
@@ -80,7 +81,8 @@ user_present(Acc, #{jid := UserJID = #jid{}}, _) ->
       Args :: #{jid := jid:jid()},
       Extra :: gen_hook:extra().
 user_not_present(Acc, #{jid := UserJID}, _) ->
-    Event = #user_status_event{jid = UserJID, status = offline},
+    SessionCount = count_user_sessions(UserJID),
+    Event = #user_status_event{jid = UserJID, status = offline, time = erlang:system_time(millisecond), session_count = SessionCount},
     NewAcc = mod_event_pusher:push_event(Acc, Event),
     {ok, merge_acc(Acc, NewAcc)}.
 
@@ -125,6 +127,10 @@ chat_type(Acc) ->
 merge_acc(Acc, EventPusherAcc) ->
     NS = mongoose_acc:get(event_pusher, EventPusherAcc),
     mongoose_acc:set_permanent(event_pusher, NS, Acc).
+
+-spec count_user_sessions(jid:jid()) -> non_neg_integer().
+count_user_sessions(JID) ->
+    length(ejabberd_sm:get_user_present_resources(JID)).
 
 -spec hooks(mongooseim:host_type()) -> [gen_hook:hook_tuple()].
 hooks(HostType) ->

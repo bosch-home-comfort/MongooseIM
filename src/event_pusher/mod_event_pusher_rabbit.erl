@@ -87,8 +87,8 @@ exchange_spec(Name) ->
                           <<"type">> => <<"topic">>},
              include = always}.
 
-push_event(Acc, #user_status_event{jid = UserJID, status = Status}) ->
-    handle_user_presence_change(mongoose_acc:host_type(Acc), UserJID, Status),
+push_event(Acc, #user_status_event{jid = UserJID, status = Status, time = Time, session_count = SessionCount}) ->
+    handle_user_presence_change(mongoose_acc:host_type(Acc), UserJID, Status, Time, SessionCount),
     Acc;
 push_event(Acc, ChatEvent = #chat_event{}) ->
     handle_user_chat_event(mongoose_acc:host_type(Acc), ChatEvent),
@@ -108,11 +108,11 @@ create_exchanges(HostType) ->
            || #{name := ExName, type := Type} <- Exchanges],
     verify_exchanges_were_created_or_crash(Res, Exchanges).
 
--spec handle_user_presence_change(mongooseim:host_type(), JID :: jid:jid(), Status :: atom()) -> ok.
-handle_user_presence_change(HostType, JID, Status) ->
+-spec handle_user_presence_change(mongooseim:host_type(), JID :: jid:jid(), Status :: atom(), Time :: integer(), SessionCount :: non_neg_integer()) -> ok.
+handle_user_presence_change(HostType, JID, Status, Time, SessionCount) ->
     #{name := ExchangeName} = exchange_opts(HostType, presence_exchange),
     RoutingKey = presence_routing_key(JID),
-    Message = presence_msg(JID, Status),
+    Message = presence_msg(JID, Status, Time, SessionCount),
     PublishMethod = mongoose_amqp:basic_publish(ExchangeName, RoutingKey),
     AMQPMessage = mongoose_amqp:message(Message),
     cast_rabbit_worker(HostType, {amqp_publish, PublishMethod, AMQPMessage}).
@@ -175,9 +175,9 @@ user_topic_routing_key(JID, Topic) ->
     BinJID = jid:to_binary({LUser, LServer}),
     <<BinJID/binary, ".", Topic/binary>>.
 
--spec presence_msg(JID :: jid:jid(), Status :: atom()) -> binary().
-presence_msg(JID, Status) ->
-    Msg = #{user_id => jid:to_binary(jid:to_lower(JID)), present => is_user_online(Status)},
+-spec presence_msg(JID :: jid:jid(), Status :: atom(), Time :: integer(), SessionCount :: non_neg_integer()) -> binary().
+presence_msg(JID, Status, Time, SessionCount) ->
+    Msg = #{user_id => jid:to_binary(jid:to_lower(JID)), present => is_user_online(Status), time => Time, session_count => SessionCount},
     iolist_to_binary(jiffy:encode(Msg)).
 
 -spec chat_msg(From :: jid:jid(), To :: jid:jid(), UserMsg :: binary()) ->
