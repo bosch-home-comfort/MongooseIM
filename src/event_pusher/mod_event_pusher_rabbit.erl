@@ -36,7 +36,8 @@
 -define(POOL_TAG, event_pusher).
 
 -type exchange_opts() :: #{name := binary(), type := binary(),
-                           sent_topic => binary(), recv_topic => binary()}.
+                           sent_topic => binary(), recv_topic => binary(),
+                           durable := boolean()}.
 
 %%%===================================================================
 %%% Exports
@@ -82,9 +83,11 @@ exchange_spec(Name) ->
     #section{items = #{<<"name">> => #option{type = binary,
                                              validate = non_empty},
                        <<"type">> => #option{type = binary,
-                                             validate = non_empty}},
+                                             validate = non_empty},
+                       <<"durable">> => #option{type = boolean}},
              defaults = #{<<"name">> => Name,
-                          <<"type">> => <<"topic">>},
+                          <<"type">> => <<"topic">>,
+                          <<"durable">> => false},
              include = always}.
 
 push_event(Acc, #user_status_event{jid = UserJID, status = Status, time = Time, session_count = SessionCount}) ->
@@ -104,8 +107,8 @@ push_event(Acc, _) ->
 create_exchanges(HostType) ->
     Exchanges = exchanges(HostType),
     Res = [call_rabbit_worker(HostType, {amqp_call,
-                                         mongoose_amqp:exchange_declare(ExName, Type)})
-           || #{name := ExName, type := Type} <- Exchanges],
+                                         mongoose_amqp:exchange_declare(ExName, Type, Durable)})
+           || #{name := ExName, type := Type, durable := Durable} <- Exchanges],
     verify_exchanges_were_created_or_crash(Res, Exchanges).
 
 -spec handle_user_presence_change(mongooseim:host_type(), JID :: jid:jid(), Status :: atom(), Time :: integer(), SessionCount :: non_neg_integer()) -> ok.
