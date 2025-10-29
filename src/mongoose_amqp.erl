@@ -54,8 +54,9 @@
 %%%===================================================================
 
 -spec network_params(map()) -> #amqp_params_network{}.
-network_params(#{host := Host, port := Port, username := UserName, password := Password, virtual_host := VirtualHost}) ->
-    #amqp_params_network{host = Host, port = Port, username = UserName, password = Password, virtual_host = VirtualHost}.
+network_params(#{host := Host, port := Port, username := UserName, password := Password, virtual_host := VirtualHost, tls := TLSOpts}) ->
+    SslOptions = just_tls:make_client_opts(TLSOpts),
+    #amqp_params_network{host = Host, port = Port, username = UserName, password = Password, virtual_host = VirtualHost, ssl_options = SslOptions}.
 
 -spec exchange_declare(Exchange :: binary(), Type :: binary()) -> method().
 exchange_declare(Exchange, Type) ->
